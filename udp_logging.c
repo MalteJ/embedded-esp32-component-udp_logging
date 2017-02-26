@@ -25,9 +25,6 @@
 #include "lwip/netdb.h"
 #include "lwip/dns.h"
 
-#define SERVER_IP "192.168.0.108"
-#define SERVER_PORT 1337
-
 static int fd;
 static struct sockaddr_in serveraddr;
 static uint8_t buf[UDP_LOGGING_MAX_PAYLOAD_LEN];
