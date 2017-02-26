@@ -20,14 +20,14 @@ static struct sockaddr_in serveraddr;
 static uint8_t buf[MAX_PAYLOAD_LEN];
 static uint32_t len;
 
-static int udp_log_vprintf( const char *str, va_list l ) {
+static int udp_logging_vprintf( const char *str, va_list l ) {
     len = vsprintf((char*)buf, str, l);
     sendto(fd, buf, len, 0, (struct sockaddr *)&serveraddr, sizeof(serveraddr));
 
     return vprintf( str, l );
 }
 
-int udp_log_init(const char *ipaddr, unsigned long port ) {
+int udp_logging_init(const char *ipaddr, unsigned long port ) {
     ESP_LOGI("UDP_LOGGING", "initializing udp logging...");
     if( (fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) {
        ESP_LOGE("UDP_LOGGING", "Cannot open socket!");
@@ -43,12 +43,12 @@ int udp_log_init(const char *ipaddr, unsigned long port ) {
     serveraddr.sin_port = htons( port );
     serveraddr.sin_addr.s_addr = ip_addr_bytes;
 
-    esp_log_set_vprintf(udp_log_vprintf);
+    esp_log_set_vprintf(udp_logging_vprintf);
 
     return 0;
 }
 
-void udp_log_free() {
+void udp_logging_free() {
     esp_log_set_vprintf(vprintf);
     close( fd );
 }
