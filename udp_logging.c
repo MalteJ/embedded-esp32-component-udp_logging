@@ -1,3 +1,17 @@
+//  Copyright 2017 by Malte Janduda
+//
+//  Licensed under the Apache License, Version 2.0 (the "License");
+//  you may not use this file except in compliance with the License.
+//  You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
+
 #include "udp_logging.h"
 
 #include "esp_system.h"
@@ -11,13 +25,12 @@
 #include "lwip/netdb.h"
 #include "lwip/dns.h"
 
-#define MAX_PAYLOAD_LEN 1024
 #define SERVER_IP "192.168.0.108"
 #define SERVER_PORT 1337
 
 static int fd;
 static struct sockaddr_in serveraddr;
-static uint8_t buf[MAX_PAYLOAD_LEN];
+static uint8_t buf[UDP_LOGGING_MAX_PAYLOAD_LEN];
 static uint32_t len;
 
 static int udp_logging_vprintf( const char *str, va_list l ) {
