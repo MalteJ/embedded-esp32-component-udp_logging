@@ -25,21 +25,35 @@
 #include "lwip/netdb.h"
 #include "lwip/dns.h"
 
-static int fd;
+int udp_log_fd;
 static struct sockaddr_in serveraddr;
 static uint8_t buf[UDP_LOGGING_MAX_PAYLOAD_LEN];
 static uint32_t len;
 
-static int udp_logging_vprintf( const char *str, va_list l ) {
-    len = vsprintf((char*)buf, str, l);
-    sendto(fd, buf, len, 0, (struct sockaddr *)&serveraddr, sizeof(serveraddr));
-
-    return vprintf( str, l );
+void udp_logging_free() {
+    esp_log_set_vprintf(vprintf);
+    shutdown(udp_log_fd, 0);
+    close( udp_log_fd );
+    udp_log_fd = 0;
 }
 
-int udp_logging_init(const char *ipaddr, unsigned long port ) {
-    ESP_LOGI("UDP_LOGGING", "initializing udp logging...");
-    if( (fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) {
+static int udp_logging_vprintf( const char *str, va_list l ) {
+    int err = 0;
+	len = vsprintf((char*)buf, str, l);
+    if( (err = sendto(udp_log_fd, buf, len, 0, (struct sockaddr *)&serveraddr, sizeof(serveraddr))) < 0 )
+    {
+    	vprintf("\nFreeing UDP Logging. sendto failed!\n", l);
+    	udp_logging_free();
+    	return vprintf("UDP Logging freed!\n\n", l);
+    }
+	return vprintf( str, l );
+}
+
+int udp_logging_init(const char *ipaddr, unsigned long port) {
+	struct timeval send_timeout = {1,0};
+	udp_log_fd = 0;
+	ESP_LOGI("UDP_LOGGING", "initializing udp logging...");
+    if( (udp_log_fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) {
        ESP_LOGE("UDP_LOGGING", "Cannot open socket!");
        return -1;
     }
@@ -53,13 +67,13 @@ int udp_logging_init(const char *ipaddr, unsigned long port ) {
     serveraddr.sin_port = htons( port );
     serveraddr.sin_addr.s_addr = ip_addr_bytes;
 
+    int err = setsockopt(udp_log_fd, SOL_SOCKET, SO_SNDTIMEO, (const char *)&send_timeout, sizeof(send_timeout));
+	if (err < 0) {
+	   ESP_LOGE("UDP_LOGGING", "Failed to set SO_SNDTIMEO. Error %d", err);
+	}
+
     esp_log_set_vprintf(udp_logging_vprintf);
 
     return 0;
-}
-
-void udp_logging_free() {
-    esp_log_set_vprintf(vprintf);
-    close( fd );
 }
 

@@ -1,0 +1,14 @@
+menu "UDP Logging"
+
+config LOG_UDP_PORT
+    int "UDP Port" 
+    default 1337
+    help
+        UDP Port to send log output to
+
+config LOG_UDP_IP
+    string "IP address to send log output"
+	default "224.0.0.0"
+	help
+		IP address to send log output to
+endmenu
