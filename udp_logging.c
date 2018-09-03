@@ -30,23 +30,43 @@ static struct sockaddr_in serveraddr;
 static uint8_t buf[UDP_LOGGING_MAX_PAYLOAD_LEN];
 static uint32_t len;
 
-void udp_logging_free() {
+void udp_logging_free(va_list l) {
+	int err = 0;
+	char *err_buf;
     esp_log_set_vprintf(vprintf);
-    shutdown(udp_log_fd, 0);
-    close( udp_log_fd );
+    if( (err = shutdown(udp_log_fd, 2)) == 0 )
+	{
+		vprintf("\nUDP socket shutdown!", l);
+	}else
+	{
+    	asprintf(&err_buf, "\nShutting-down UDP socket failed: %d!\n", err);
+		vprintf(err_buf, l);
+	}
+
+    if( (err = close( udp_log_fd )) == 0 )
+    {
+		vprintf("\nUDP socket closed!", l);
+	}else
+	{
+		asprintf(&err_buf, "\n Closing UDP socket failed: %d!\n", err);
+		vprintf(err_buf, l);
+	}
     udp_log_fd = 0;
 }
 
+
 static int udp_logging_vprintf( const char *str, va_list l ) {
     int err = 0;
-	len = vsprintf((char*)buf, str, l);
-    if( (err = sendto(udp_log_fd, buf, len, 0, (struct sockaddr *)&serveraddr, sizeof(serveraddr))) < 0 )
+    char *temp_buf;
+    asprintf(&temp_buf, "UDP: %s", str);
+	len = vsprintf((char*)buf, temp_buf, l);
+    if( (err = sendto(udp_log_fd, temp_buf, len, 0, (struct sockaddr *)&serveraddr, sizeof(serveraddr))) < 0 )
     {
     	vprintf("\nFreeing UDP Logging. sendto failed!\n", l);
-    	udp_logging_free();
+    	udp_logging_free(l);
     	return vprintf("UDP Logging freed!\n\n", l);
     }
-	return vprintf( str, l );
+	return vprintf( temp_buf, l );
 }
 
 int udp_logging_init(const char *ipaddr, unsigned long port) {
