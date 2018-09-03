@@ -28,7 +28,24 @@
 int udp_log_fd;
 static struct sockaddr_in serveraddr;
 static uint8_t buf[UDP_LOGGING_MAX_PAYLOAD_LEN];
-static uint32_t len;
+
+int get_socket_error_code(int socket)
+{
+	int result;
+	u32_t optlen = sizeof(int);
+	if(getsockopt(socket, SOL_SOCKET, SO_ERROR, &result, &optlen) == -1) {
+	printf("getsockopt failed");
+	return -1;
+	}
+	return result;
+}
+
+int show_socket_error_reason(int socket)
+{
+	int err = get_socket_error_code(socket);
+	printf("UDP socket error %d %s", err, strerror(err));
+	return err;
+}
 
 void udp_logging_free(va_list l) {
 	int err = 0;
@@ -57,16 +74,23 @@ void udp_logging_free(va_list l) {
 
 static int udp_logging_vprintf( const char *str, va_list l ) {
     int err = 0;
-    char *temp_buf;
-    asprintf(&temp_buf, "UDP: %s", str);
-	len = vsprintf((char*)buf, temp_buf, l);
-    if( (err = sendto(udp_log_fd, temp_buf, len, 0, (struct sockaddr *)&serveraddr, sizeof(serveraddr))) < 0 )
-    {
-    	vprintf("\nFreeing UDP Logging. sendto failed!\n", l);
-    	udp_logging_free(l);
-    	return vprintf("UDP Logging freed!\n\n", l);
-    }
-	return vprintf( temp_buf, l );
+	int len;
+	char task_name[16];
+	char *cur_task = pcTaskGetTaskName(xTaskGetCurrentTaskHandle());
+	strncpy(task_name, cur_task, 16);
+	task_name[15] = 0;
+	if (strncmp(task_name, "tiT", 16) != 0)
+	{
+		len = vsprintf((char*)buf, str, l);
+		if( (err = sendto(udp_log_fd, buf, len, 0, (struct sockaddr *)&serveraddr, sizeof(serveraddr))) < 0 )
+		{
+			show_socket_error_reason(udp_log_fd);
+			vprintf("\nFreeing UDP Logging. sendto failed!\n", l);
+			udp_logging_free(l);
+			return vprintf("UDP Logging freed!\n\n", l);
+		}
+	}
+	return vprintf( str, l );
 }
 
 int udp_logging_init(const char *ipaddr, unsigned long port) {
@@ -96,4 +120,5 @@ int udp_logging_init(const char *ipaddr, unsigned long port) {
 
     return 0;
 }
+
 
