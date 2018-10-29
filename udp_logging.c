@@ -72,7 +72,7 @@ void udp_logging_free(va_list l) {
 }
 
 
-static int udp_logging_vprintf( const char *str, va_list l ) {
+int udp_logging_vprintf( const char *str, va_list l ) {
     int err = 0;
 	int len;
 	char task_name[16];
@@ -93,7 +93,7 @@ static int udp_logging_vprintf( const char *str, va_list l ) {
 	return vprintf( str, l );
 }
 
-int udp_logging_init(const char *ipaddr, unsigned long port) {
+int udp_logging_init(const char *ipaddr, unsigned long port, vprintf_like_t func) {
 	struct timeval send_timeout = {1,0};
 	udp_log_fd = 0;
 	ESP_LOGI("UDP_LOGGING", "initializing udp logging...");
@@ -116,7 +116,7 @@ int udp_logging_init(const char *ipaddr, unsigned long port) {
 	   ESP_LOGE("UDP_LOGGING", "Failed to set SO_SNDTIMEO. Error %d", err);
 	}
 
-    esp_log_set_vprintf(udp_logging_vprintf);
+    esp_log_set_vprintf(func);
 
     return 0;
 }
