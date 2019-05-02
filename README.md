@@ -8,7 +8,7 @@ Just include the component into your project, include the header file and call u
 
     #include "udp_logging.h"
     
-    udp_logging_init( "192.168.0.108", 1337 );
+    udp_logging_init( CONFIG_LOG_UDP_IP, CONFIG_LOG_UDP_PORT, udp_logging_vprintf );
 
 On the server execute the logging_server.py file using Python v3:
 
