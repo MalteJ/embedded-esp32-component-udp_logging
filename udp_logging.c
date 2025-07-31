@@ -24,9 +24,11 @@
 #include "lwip/sys.h"
 #include "lwip/netdb.h"
 #include "lwip/dns.h"
-
+#include "freertos/task.h"
+static const char *TAG = "udp_logging";
 int udp_log_fd;
-static struct sockaddr_in serveraddr;
+static struct sockaddr serveraddr;
+static struct addrinfo hints;
 static uint8_t buf[UDP_LOGGING_MAX_PAYLOAD_LEN];
 
 int get_socket_error_code(int socket)
@@ -76,7 +78,7 @@ int udp_logging_vprintf( const char *str, va_list l ) {
     int err = 0;
 	int len;
 	char task_name[16];
-	char *cur_task = pcTaskGetTaskName(xTaskGetCurrentTaskHandle());
+	char *cur_task = pcTaskGetName(xTaskGetCurrentTaskHandle());
 	strncpy(task_name, cur_task, 16);
 	task_name[15] = 0;
 	if (strncmp(task_name, "tiT", 16) != 0)
@@ -93,23 +95,32 @@ int udp_logging_vprintf( const char *str, va_list l ) {
 	return vprintf( str, l );
 }
 
-int udp_logging_init(const char *ipaddr, unsigned long port, vprintf_like_t func) {
-	struct timeval send_timeout = {1,0};
+int udp_logging_init(const char *node, const char *service, vprintf_like_t func)
+{
+	struct timeval send_timeout = {1, 0};
 	udp_log_fd = 0;
-	ESP_LOGI("UDP_LOGGING", "initializing udp logging...");
-    if( (udp_log_fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) {
-       ESP_LOGE("UDP_LOGGING", "Cannot open socket!");
-       return -1;
-    }
+	ESP_LOGI(TAG, "initializing udp logging...");
 
-    uint32_t ip_addr_bytes;
-    inet_aton(ipaddr, &ip_addr_bytes);
-    ESP_LOGI("UDP_LOGGING", "Logging to 0x%x", ip_addr_bytes);
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_flags = AI_V4MAPPED;
+	hints.ai_socktype = SOCK_DGRAM;
+	struct addrinfo *res;
+	sa_family_t family = AF_INET;
+	int rc = getaddrinfo(node, service, &hints, &res);
+	if (rc != 0)
+	{
+		ESP_LOGI(TAG, "Host not found! (%s)", node);
+	}
+	memcpy(&serveraddr, res->ai_addr, sizeof(serveraddr));
+	family = res->ai_addr->sa_family;
+	freeaddrinfo(res);
+	if ((udp_log_fd = socket(family, SOCK_DGRAM, 0)) < 0)
+	{
+		ESP_LOGE(TAG, "Cannot open socket!");
+		return -1;
+	}
 
-    memset( &serveraddr, 0, sizeof(serveraddr) );
-    serveraddr.sin_family = AF_INET;
-    serveraddr.sin_port = htons( port );
-    serveraddr.sin_addr.s_addr = ip_addr_bytes;
+	ESP_LOGI(TAG, "Logging to %s", node);
 
     int err = setsockopt(udp_log_fd, SOL_SOCKET, SO_SNDTIMEO, (const char *)&send_timeout, sizeof(send_timeout));
 	if (err < 0) {
